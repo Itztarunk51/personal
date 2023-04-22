@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+<title>DApp Project Registry</title>
+
+<link rel="stylesheet" href="./style.css" />
+<style>
+body {
+
+
+font-family: Arial, Helvetica, sans-serif;
+
+margin: 0;
+
+padding: 0;
+
+}
+
+
+#topbar {
+
+
+display: flex;
+
+justify-content: space-between;
+
+align-items: center;
+
+padding: 20px;
+
+
+background-color: #fff;
+
+box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+
+position: fixed;
+
+top: 0;
+
+left: 0;
+
+right: 0;
+
+}
+
+
+h1 {
+
+
+margin: 0;
+
+text-align: center;
+
+}
+
+
+#wallet{
+
+
+display: flex;
+
+justify-content: flex-end;
+
+align-items: center;
+
+margin: 0 20px;
+
+}
+
+
+#btnConnect{
+
+
+background-color: #1B98E0;
+
+color: white;
+
+border: none;
+
+border-radius: 5px;
+
+margin-right: 10px;
+
+padding: 10px 20px;
+
+cursor: pointer;
+
+}
+
+
+#btnConnect:hover{
+
+
+background-color: #0B5C8F;
+
+}
+
+
+#projectForm,
+
+
+#voteForm,
+
+
+#feedbackForm {
+
+
+margin: 20px;
+
+}
+
+
+form {
+
+
+display: flex;
+
+flex-direction: column;
+
+margin-top: 10px;
+
+}
+
+
+label {
+
+
+padding: 10px 0;
+
+}
+
+
+input[type="button"] {
+
+
+width: 100px;
+
+margin-top: 10px;
+
+padding: 10px;
+
+background-color: #4CAF50;
+
+color: white;
+
+border: none;
+
+border-radius: 5px;
+
+cursor: pointer;
+
+}
+
+
+input[type="button"]:hover {
+
+
+background-color: #3e8e41;
+
+}
+
+
+#list{
+
+
+padding: 0;
+
+margin: 20px;
+
+list-style: none;
+
+}
+
+
+#list li{
+
+
+display: flex;
+
+justify-content: space-between;
+
+align-items: center;
+
+margin-bottom: 10px;
+
+}
+
+
+#list li h3{
+
+
+margin: 0;
+
+}
+
+
+#list li button{
+
+
+background-color: #4CAF50;
+
+color: white;
+
+border: none;
+
+border-radius: 5px;
+
+cursor: pointer;
+
+padding: 10px;
+
+}
+
+
+#list li button :hover{
+
+
+background-color: #3e8e41;
+
+}
+
+
+
+
+</style>
+
+</head>
+
+<body>
+
+<div id="topbar">
+
+<h1>DApp Project Registry</h1>
+
+<div id="wallet">
+
+<button id="btnConnect" onclick="connect()">Connect Wallet</button>
+
+
+<p id="account"></p>
+
+</div>
+
+</div>
+
+<div id="projectForm">
+
+<h2>Register a Project</h2>
+
+<form>
+
+<label for="name">Name</label>
+
+<input type="text" id="name" name="name" />
+
+<label for="description">Description</label>
+
+<input type="text" id="description" name="description" />
+
+<label for="url">URL</label>
+
+<input type="text" id="url" name="url" />
+
+<input type="button" value="Register" onclick="registerProject()" />
+
+</form>
+
+</div>
+
+<div id="voteForm">
+
+<h2>Vote for a Project</h2>
+
+<form>
+
+<label for="project">Choose a Project</label>
+
+<select id="project" name="project"></select>
+
+<input type="button" value="Vote" onclick="vote()" />
+
+</form>
+
+</div>
+
+<div id="feedbackForm">
+
+<h2>Submit Feedback for a Project</h2>
+
+<form>
+
+<label for="projectFeedback">Choose a Project</label>
+
+<select id="projectFeedback" name="projectFeedback"></select>
+
+<label for="feedback">Enter Feedback</label>
+
+<input type="text" id="feedback" name="feedback" />
+
+<input type="button" value="Submit" onclick="submitFeedback()" />
+
+</form>
+
+</div>
+
+<div id="projectList">
+
+<h2>Projects</h2>
+
+<ul id="list"></ul>
+
+</div>
+
+<script>
+const networkId = 80001 // Rinkby Test Network
+
+
+let provider;
+
+
+let signer;
+
+
+let contract;
+
+
+async function connectWallet() {
+
+
+try {
+
+// Connect to wallet
+
+provider = new ethers.providers.Web3Provider(window.ethereum);
+
+signer = provider.getSigner();
+
+// Request account access
+
+await window.ethereum.request({ method: 'eth_requestAccounts' });
+
+// Initialize contract
+
+const contractAddress = '0xcc2bDFAA45FD5fe6021117F198491134C3F75aE9';
+
+const contractABI = [
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "projectId",
+				"type": "uint256"
+			},
+			{
+				"indexed": false,
+				"internalType": "string",
+				"name": "feedback",
+				"type": "string"
+			}
+		],
+		"name": "FeedbackSubmitted",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": false,
+				"internalType": "string",
+				"name": "name",
+				"type": "string"
+			},
+			{
+				"indexed": false,
+				"internalType": "string",
+				"name": "description",
+				"type": "string"
+			},
+			{
+				"indexed": false,
+				"internalType": "string",
+				"name": "url",
+				"type": "string"
+			}
+		],
+		"name": "ProjectRegistered",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "projectId",
+				"type": "uint256"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "voteCount",
+				"type": "uint256"
+			}
+		],
+		"name": "ProjectVoted",
+		"type": "event"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "name",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "description",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "url",
+				"type": "string"
+			}
+		],
+		"name": "registerProject",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "projectId",
+				"type": "uint256"
+			},
+			{
+				"internalType": "string",
+				"name": "feedback",
+				"type": "string"
+			}
+		],
+		"name": "submitFeedback",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "projectId",
+				"type": "uint256"
+			}
+		],
+		"name": "vote",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "projectId",
+				"type": "uint256"
+			}
+		],
+		"name": "getFeedback",
+		"outputs": [
+			{
+				"internalType": "string[]",
+				"name": "",
+				"type": "string[]"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "projectId",
+				"type": "uint256"
+			}
+		],
+		"name": "getProject",
+		"outputs": [
+			{
+				"internalType": "string",
+				"name": "",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "",
+				"type": "string"
+			},
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			},
+			{
+				"internalType": "string[]",
+				"name": "",
+				"type": "string[]"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "getProjectCount",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "projectId",
+				"type": "uint256"
+			}
+		],
+		"name": "getVoteCount",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"name": "projects",
+		"outputs": [
+			{
+				"internalType": "string",
+				"name": "name",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "description",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "url",
+				"type": "string"
+			},
+			{
+				"internalType": "uint256",
+				"name": "voteCount",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	}
+];
+
+contract = new ethers.Contract(contractAddress, contractABI, signer);
+
+console.log('Connected to wallet and initialized contract.');
+
+displayProjects();
+
+} catch (e) {
+
+console.error(e);
+
+}
+
+}
+
+
+async function registerProject(event) {
+
+
+event.preventDefault();
+
+try {
+
+const name = document.getElementById('name').value;
+
+const description = document.getElementById('description').value;
+
+const url = document.getElementById('url').value;
+
+await contract.registerProject(name, description, url);
+
+displayProjects();
+
+} catch (e) {
+
+console.error(e);
+
+}
+
+}
+
+
+async function displayProjects() {
+
+
+try {
+
+// Get project count and clear current table
+const projectCount = await contract.getProjectCount();
+
+
+const projectTableBody = document.getElementById('project-table-body');
+
+projectTableBody.innerHTML = '';
+
+// Generate table rows for each project
+
+for (let i = 0; i < projectCount; i++) {
+
+const details = await contract.getProject(i);
+
+const f
+</script>
+
+</body>
+
+</html>
+
+
+
